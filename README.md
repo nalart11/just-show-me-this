@@ -32,6 +32,9 @@ An API key or a separate Codex CLI login does not replace this connection.
 ## Usage
 
 A compact indicator appears in the home-screen footer and the prompt footer.
+Each quota window also shows a countdown to its reset time. Unknown reset times
+are marked as unknown; an elapsed reset time is shown as awaiting an update,
+not as a confirmed quota refill.
 Run `/codex-limits` to see the available quota windows, remaining percentages,
 and reset times. The plugin polls every minute; server-side caching means the
 command does not bypass that refresh interval.

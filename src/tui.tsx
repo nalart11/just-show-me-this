@@ -1,6 +1,7 @@
 import { Plugin } from "@opencode/plugin/tui"
 import { createMemo, createSignal, onCleanup } from "solid-js"
 import { CodexLimits } from "./rpc.js"
+import { resetCountdown } from "./countdown.js"
 import type { QuotaStatus, QuotaWindow } from "./status.js"
 
 type ViewState =
@@ -29,11 +30,11 @@ function parseStatus(value: unknown): QuotaStatus | undefined {
 }
 
 function resetLabel(timestamp: number | null): string {
-  if (timestamp === null) return "время сброса неизвестно"
+  if (timestamp === null) return "reset time unknown"
   try {
-    return `сброс ${new Intl.DateTimeFormat("ru", { dateStyle: "short", timeStyle: "short" }).format(timestamp)}`
+    return `reset ${new Intl.DateTimeFormat("ru", { dateStyle: "short", timeStyle: "short" }).format(timestamp)}`
   } catch {
-    return "время сброса неизвестно"
+    return "reset time unknown"
   }
 }
 
@@ -89,7 +90,7 @@ export default Plugin.define({
       if (state.kind === "missing") return <text fg={theme.text.muted}>Codex · недоступно</text>
       if (state.kind === "error") return <text fg={theme.warning}>Codex · данные недоступны</text>
       if (!state.windows.length) return <text fg={theme.text.muted}>Codex · нет данных о квотах</text>
-      return <text fg={state.windows.some((window) => window.remainingPercent <= 10) ? theme.warning : theme.text.muted}>Codex · {state.windows.map((window) => `${window.label} ${Math.round(window.remainingPercent)}%`).join(" · ")}</text>
+      return <text fg={state.windows.some((window) => window.remainingPercent <= 10) ? theme.warning : theme.text.muted}>Codex · {state.windows.map((window) => `${window.label} ${Math.round(window.remainingPercent)}% · ${resetCountdown(window.resetAt)}`).join(" | ")}</text>
     }
 
     const registerSlot = (placement: "home.footer.status" | "prompt.footer.status") =>
@@ -108,7 +109,7 @@ export default Plugin.define({
           : state.kind === "error"
             ? `Лимиты сейчас недоступны.\n${state.message}${state.updatedAt ? `\n${updatedLabel(state.updatedAt)}` : ""}`
             : state.windows.length
-              ? `${state.windows.map((window) => `${window.label}: ${Math.round(window.remainingPercent)}% осталось · ${resetLabel(window.resetAt)}`).join("\n")}\n${updatedLabel(state.updatedAt)}`
+              ? `${state.windows.map((window) => `${window.label}: ${Math.round(window.remainingPercent)}% осталось · ${resetCountdown(window.resetAt)} · ${resetLabel(window.resetAt)}`).join("\n")}\n${updatedLabel(state.updatedAt)}`
               : "Нет данных о квотах."
       await context.ui.dialog.alert({ title: "Лимиты Codex", message })
     }
@@ -128,7 +129,10 @@ export default Plugin.define({
       }],
     }))
     void refresh()
-    const timer = setInterval(() => { void refresh() }, 60_000)
+    const timer = setInterval(() => {
+      notify()
+      void refresh()
+    }, 60_000)
     return () => {
       disposed = true
       clearInterval(timer)
